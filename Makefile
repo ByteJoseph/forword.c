@@ -25,7 +25,7 @@ INFERENCE_SRCS = \
     tensor_ops.c
 
 INSPECT_SRCS = \
-    gguf-inspect-main.c \
+    inspect.c \
     gguf.c
 
 QUANT_TEST_SRCS = \
@@ -36,19 +36,39 @@ QUANT_TEST_SRCS = \
     quant_matvec.c \
     tensor_data.c
 
+UNIT_TEST_SRCS = \
+    test_runner.c \
+    norm.c        \
+    rope.c        \
+    sampler.c     \
+    quant.c       \
+    quant_matvec.c \
+    tensor_ops.c  \
+    chat_template.c
+
 # ── Object lists ─────────────────────────────────────────────────────────────
 INFERENCE_OBJS  = $(INFERENCE_SRCS:.c=.o)
+INSPECT_OBJS    = $(INSPECT_SRCS:.c=.o)
 QUANT_TEST_OBJS = $(QUANT_TEST_SRCS:.c=.o)
+UNIT_TEST_OBJS  = $(UNIT_TEST_SRCS:.c=.o)
 
 # ── Targets ──────────────────────────────────────────────────────────────────
-.PHONY: all clean run inspect
+.PHONY: all clean run inspect test unit-test
 
-all: forword quant-test gguf-inspect
+all: forword quant-test gguf-inspect unit-test
 
 forword: $(INFERENCE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 quant-test: $(QUANT_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+
+gguf-inspect: $(INSPECT_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+
+inspect: gguf-inspect
+
+unit-test: $(UNIT_TEST_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 # ── Pattern rule ──────────────────────────────────────────────────────────────
@@ -86,5 +106,5 @@ test: quant-test
 	./quant-test "$(MODEL)"
 
 clean:
-	rm -f *.o forword quant-test gguf-inspect
+	rm -f *.o forword quant-test gguf-inspect inspect unit-test
 

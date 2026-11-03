@@ -62,40 +62,55 @@ static int read_string(reader_t *r, char **out) {
     return 0;
 }
 
-static int skip_bytes(reader_t *r, uint64_t n) {
-    if (n > (uint64_t)(r->end-r->p)) return -1;
-    r->p += (size_t)n;
-    return 0;
-}
-
 static int read_scalar(reader_t *r, uint32_t type, char *out, size_t cap) {
     uint8_t u8; int8_t i8; uint16_t u16; int16_t i16;
     uint32_t u32; int32_t i32; uint64_t u64; int64_t i64;
     float f32; double f64;
     switch (type) {
     case GGUF_METADATA_UINT8:
-        if (take(r,&u8,1)) return -1; snprintf(out,cap,"%" PRIu8,u8); return 0;
+        if (take(r, &u8, 1)) return -1;
+        snprintf(out, cap, "%" PRIu8, u8);
+        return 0;
     case GGUF_METADATA_INT8:
-        if (take(r,&i8,1)) return -1; snprintf(out,cap,"%" PRId8,i8); return 0;
+        if (take(r, &i8, 1)) return -1;
+        snprintf(out, cap, "%" PRId8, i8);
+        return 0;
     case GGUF_METADATA_UINT16:
-        if (take(r,&u16,2)) return -1; snprintf(out,cap,"%" PRIu16,u16); return 0;
+        if (take(r, &u16, 2)) return -1;
+        snprintf(out, cap, "%" PRIu16, u16);
+        return 0;
     case GGUF_METADATA_INT16:
-        if (take(r,&i16,2)) return -1; snprintf(out,cap,"%" PRId16,i16); return 0;
+        if (take(r, &i16, 2)) return -1;
+        snprintf(out, cap, "%" PRId16, i16);
+        return 0;
     case GGUF_METADATA_UINT32:
-        if (take(r,&u32,4)) return -1; snprintf(out,cap,"%" PRIu32,u32); return 0;
+        if (take(r, &u32, 4)) return -1;
+        snprintf(out, cap, "%" PRIu32, u32);
+        return 0;
     case GGUF_METADATA_INT32:
-        if (take(r,&i32,4)) return -1; snprintf(out,cap,"%" PRId32,i32); return 0;
+        if (take(r, &i32, 4)) return -1;
+        snprintf(out, cap, "%" PRId32, i32);
+        return 0;
     case GGUF_METADATA_FLOAT32:
-        if (take(r,&f32,4)) return -1; snprintf(out,cap,"%.9g",(double)f32); return 0;
+        if (take(r, &f32, 4)) return -1;
+        snprintf(out, cap, "%.9g", (double)f32);
+        return 0;
     case GGUF_METADATA_BOOL:
-        if (take(r,&u8,1) || u8 > 1) return -1;
-        snprintf(out,cap,"%s",u8 ? "true":"false"); return 0;
+        if (take(r, &u8, 1) || u8 > 1) return -1;
+        snprintf(out, cap, "%s", u8 ? "true" : "false");
+        return 0;
     case GGUF_METADATA_UINT64:
-        if (take(r,&u64,8)) return -1; snprintf(out,cap,"%" PRIu64,u64); return 0;
+        if (take(r, &u64, 8)) return -1;
+        snprintf(out, cap, "%" PRIu64, u64);
+        return 0;
     case GGUF_METADATA_INT64:
-        if (take(r,&i64,8)) return -1; snprintf(out,cap,"%" PRId64,i64); return 0;
+        if (take(r, &i64, 8)) return -1;
+        snprintf(out, cap, "%" PRId64, i64);
+        return 0;
     case GGUF_METADATA_FLOAT64:
-        if (take(r,&f64,8)) return -1; snprintf(out,cap,"%.17g",f64); return 0;
+        if (take(r, &f64, 8)) return -1;
+        snprintf(out, cap, "%.17g", f64);
+        return 0;
     case GGUF_METADATA_STRING:
         return -1; /* handled separately */
     default: return -1;
@@ -273,7 +288,7 @@ int gguf_open(gguf_file_t *g, const char *path, char *errbuf, size_t errcap) {
         g->metadata_len++;
         if (!strcmp(key,"general.alignment")) {
             char *end=NULL; unsigned long n=strtoul(value,&end,10);
-            if (end && *end=='\\0' && n>0 && n<=4096 && (n&(n-1))==0) g->alignment=(uint32_t)n;
+            if (end && *end=='\0' && n>0 && n<=4096 && (n&(n-1))==0) g->alignment=(uint32_t)n;
         }
     }
     g->tensors=calloc((size_t)g->tensor_count,sizeof(*g->tensors));

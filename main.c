@@ -141,8 +141,9 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Prompt tokens: %zu\n", prompt_n);
 
     /* ── Prefill (process prompt) ──────────────────────────────────────── */
+    float *logits = NULL;
     for (size_t i = 0; i < prompt_n; i++) {
-        float *logits = transformer_forward(&model, prompt_ids[i], i);
+        logits = transformer_forward(&model, prompt_ids[i], i);
         if (!logits) {
             fprintf(stderr, "Forward pass failed at prompt position %zu\n", i);
             free(prompt_ids); transformer_free(&model); free(prompt_owned); return 1;
@@ -167,12 +168,9 @@ int main(int argc, char **argv) {
     float *logits_copy = (float *)malloc(n_vocab * sizeof(float));
     if (!logits_copy) { free(history); free(prompt_ids); transformer_free(&model); free(prompt_owned); return 1; }
 
-    uint32_t last_tok = prompt_ids[prompt_n - 1];
     size_t gen = 0;
 
     for (; gen < (size_t)max_tokens; gen++) {
-        /* Forward pass for next token */
-        float *logits = transformer_forward(&model, last_tok, prompt_n + gen);
         if (!logits) break;
 
         /* Copy logits (sampler may modify in place) */
@@ -211,7 +209,12 @@ int main(int argc, char **argv) {
 
         /* Update history */
         history[history_n++] = next_tok;
-        last_tok = next_tok;
+
+        /* Forward pass to compute logits for the next token */
+        if (gen + 1 < (size_t)max_tokens) {
+            logits = transformer_forward(&model, next_tok, prompt_n + gen);
+            if (!logits) break;
+        }
     }
 
     /* Ensure output ends with a newline */

@@ -2,6 +2,7 @@
 #include "linear.h"
 #include "quant.h"
 #include "quant_matvec.h"
+#include "simd.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -172,10 +173,8 @@ int linear_forward(const gguf_file_t    *g,
     if (type == 0) {
         const float *W = (const float *)raw;
         for (size_t r = 0; r < out_size; r++) {
-            double sum = 0.0;
             const float *row = W + r * in_size;
-            for (size_t c = 0; c < in_size; c++) sum += row[c] * x[c];
-            y[r] = (float)sum;
+            y[r] = simd_dot_f32(row, x, in_size);
         }
         goto apply_bias;
     }

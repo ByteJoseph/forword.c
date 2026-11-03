@@ -4,6 +4,7 @@
 #include "rope.h"
 #include "norm.h"
 #include "tensor_data.h"
+#include "simd.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -149,9 +150,7 @@ int attention_forward(
 
         for (size_t t = 0; t <= pos; t++) {
             const float *kt = kv_k(kv, layer, t, kv_h);
-            float dot = 0.0f;
-            for (size_t d = 0; d < head_dim; d++)
-                dot += qh[d] * kt[d];
+            float dot = simd_dot_f32(qh, kt, head_dim);
             attn_sc[t] = dot * scale;
         }
 
@@ -160,8 +159,7 @@ int attention_forward(
         for (size_t t = 0; t <= pos; t++) {
             const float *vt = kv_v(kv, layer, t, kv_h);
             float w = attn_sc[t];
-            for (size_t d = 0; d < head_dim; d++)
-                oh[d] += w * vt[d];
+            simd_axpy_f32(oh, vt, w, head_dim);
         }
     }
 

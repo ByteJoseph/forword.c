@@ -12,6 +12,7 @@
 #include "quant_matvec.h"
 #include "tensor_ops.h"
 #include "chat_template.h"
+#include "simd.h"
 
 static int g_tests_passed = 0;
 static int g_tests_total = 0;
@@ -202,6 +203,67 @@ int main(void) {
     if (test_q6_k() != 0) return 1;
     if (test_quant_matvec() != 0) return 1;
     if (test_chat_template() != 0) return 1;
+
+    /* ── Test SIMD Primitives ────────────────────────────────────────────── */
+    {
+        /* Test various vector lengths (unaligned, multiples of 4, 8, 16, odd sizes) */
+        float a[67], b[67], c[67];
+        for (int i = 0; i < 67; i++) {
+            a[i] = (float)(i % 7) - 3.0f;
+            b[i] = (float)(i % 5) + 1.5f;
+            c[i] = 0.0f;
+        }
+
+        /* 1. simd_dot_f32 */
+        for (size_t len = 1; len <= 67; len++) {
+            float expected_dot = 0.0f;
+            for (size_t i = 0; i < len; i++) expected_dot += a[i] * b[i];
+            float actual_dot = simd_dot_f32(a, b, len);
+            TEST_ASSERT(fabsf(actual_dot - expected_dot) < 1e-4f, "simd_dot_f32 precision");
+        }
+
+        /* 2. simd_add_f32 */
+        simd_add_f32(a, b, c, 67);
+        for (int i = 0; i < 67; i++) {
+            TEST_ASSERT(fabsf(c[i] - (a[i] + b[i])) < 1e-5f, "simd_add_f32 matches scalar");
+        }
+
+        /* 3. simd_mul_f32 */
+        simd_mul_f32(a, b, c, 67);
+        for (int i = 0; i < 67; i++) {
+            TEST_ASSERT(fabsf(c[i] - (a[i] * b[i])) < 1e-5f, "simd_mul_f32 matches scalar");
+        }
+
+        /* 4. simd_scale_f32 */
+        simd_scale_f32(a, 2.5f, c, 67);
+        for (int i = 0; i < 67; i++) {
+            TEST_ASSERT(fabsf(c[i] - (a[i] * 2.5f)) < 1e-5f, "simd_scale_f32 matches scalar");
+        }
+
+        /* 5. simd_axpy_f32 */
+        for (int i = 0; i < 67; i++) c[i] = 10.0f;
+        simd_axpy_f32(c, a, 3.0f, 67);
+        for (int i = 0; i < 67; i++) {
+            TEST_ASSERT(fabsf(c[i] - (10.0f + a[i] * 3.0f)) < 1e-4f, "simd_axpy_f32 matches scalar");
+        }
+
+        /* 6. tensor_matvec_f32 */
+        float W[3 * 5] = {
+            1.f, 2.f, 3.f, 4.f, 5.f,
+            2.f, 0.f, 1.f, -1.f, 3.f,
+            -1.f, 1.f, -1.f, 1.f, 0.f
+        };
+        float x_vec[5] = {1.f, -2.f, 3.f, -4.f, 5.f};
+        float y_vec[3] = {0};
+        int rc = tensor_matvec_f32(W, x_vec, y_vec, 3, 5);
+        TEST_ASSERT(rc == 0, "tensor_matvec_f32 succeeds");
+        /* row 0: 1*1 + 2*(-2) + 3*3 + 4*(-4) + 5*5 = 1 - 4 + 9 - 16 + 25 = 15 */
+        TEST_ASSERT(fabsf(y_vec[0] - 15.0f) < 1e-4f, "tensor_matvec_f32 row 0 matches");
+        /* row 1: 2*1 + 0*(-2) + 1*3 + -1*(-4) + 3*5 = 2 + 0 + 3 + 4 + 15 = 24 */
+        TEST_ASSERT(fabsf(y_vec[1] - 24.0f) < 1e-4f, "tensor_matvec_f32 row 1 matches");
+        /* row 2: -1*1 + 1*(-2) + -1*3 + 1*(-4) + 0*5 = -1 - 2 - 3 - 4 + 0 = -10 */
+        TEST_ASSERT(fabsf(y_vec[2] - (-10.0f)) < 1e-4f, "tensor_matvec_f32 row 2 matches");
+    }
 
     printf("ALL TESTS PASSED! (%d/%d checks passed)\n", g_tests_passed, g_tests_total);
     return 0;

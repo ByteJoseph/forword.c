@@ -1,4 +1,5 @@
 #include "tensor_ops.h"
+#include "simd.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -15,12 +16,8 @@ int tensor_matvec_f32(
         return -1;
 
     for (size_t r = 0; r < rows; ++r) {
-        double sum = 0.0;
-
-        for (size_t c = 0; c < cols; ++c)
-            sum += (double)weights[r * cols + c] * x[c];
-
-        y[r] = (float)sum;
+        const float *row = weights + r * cols;
+        y[r] = simd_dot_f32(row, x, cols);
     }
 
     return 0;
@@ -35,9 +32,7 @@ int tensor_add(
     if (!a || !b || !out || !n)
         return -1;
 
-    for (size_t i = 0; i < n; ++i)
-        out[i] = a[i] + b[i];
-
+    simd_add_f32(a, b, out, n);
     return 0;
 }
 
@@ -52,15 +47,11 @@ int tensor_rms_norm(
         !isfinite(epsilon) || epsilon <= 0.0f)
         return -1;
 
-    double sum = 0.0;
+    float ss = simd_sum_squares_f32(x, n);
+    float scale = 1.0f / sqrtf((ss / (float)n) + epsilon);
 
-    for (size_t i = 0; i < n; ++i)
-        sum += (double)x[i] * x[i];
-
-    float scale = 1.0f / sqrtf((float)(sum / n) + epsilon);
-
-    for (size_t i = 0; i < n; ++i)
-        out[i] = x[i] * scale * weight[i];
+    simd_mul_f32(x, weight, out, n);
+    simd_scale_f32(out, scale, out, n);
 
     return 0;
 }
